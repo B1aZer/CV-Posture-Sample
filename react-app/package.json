@@ -5,6 +5,7 @@
   "dependencies": {
     "@tensorflow-models/posenet": "^2.1.1",
     "@tensorflow/tfjs": "^1.2.2",
+    "import-all.macro": "^2.0.3",
     "react": "^16.8.6",
     "react-dom": "^16.8.6",
     "react-scripts": "3.0.1"
