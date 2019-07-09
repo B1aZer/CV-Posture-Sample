@@ -1,5 +1,12 @@
 import React from 'react';
 import * as posenet from '@tensorflow-models/posenet';
+import {
+ drawBoundingBox,
+ drawKeypoints,
+ drawSkeleton,
+ drawSegment,
+ drawPoint,
+} from './Utils';
 
 class VideoSelector extends React.Component {
   state = {
@@ -9,16 +16,21 @@ class VideoSelector extends React.Component {
     return (
       <div>
       <h1>Hello</h1>
-      <video id="video" width="600" height="340" muted controls>
-       <source src="curry.mp4" type="video/mp4"/>
+      <video id="video" width="400" height="400" muted controls>
+       <source src="curry_cropped.mp4" type="video/mp4"/>
       </video>
-      <canvas id="output" width="600" height="340"/>
+      <canvas id="output" width="400" height="400"/>
       </div>
     );
   }
 
   setup = async() => {
-    const net = await posenet.load();
+    const net = await posenet.load({
+      architecture: 'ResNet50',
+      outputStride: 32,
+      inputResolution: 257,
+      quantBytes: 2
+    });
     //this.poseData = await loadPoseData();
     console.log('LOADED ALL POSES!!!');
     //this.setState({ loadedPoses: true });
@@ -33,6 +45,7 @@ class VideoSelector extends React.Component {
   async componentDidMount() {
     const net = await this.setup();
     const video = this.getVideo();
+    video.playbackRate = 0.2;
     video.play();
     this.getPoses(video, net);
   }
@@ -58,12 +71,8 @@ class VideoSelector extends React.Component {
       });
       poses = poses.concat(pose);
 
-      const videoWidth = 600;
-      const videoHeight = 340;
-
-      const color = 'aqua';
-      const boundingBoxColor = 'red';
-      const lineWidth = 2;
+      const videoWidth = 400;
+      const videoHeight = 400;
 
       ctx.clearRect(0, 0, videoWidth, videoHeight);
 
@@ -77,10 +86,7 @@ class VideoSelector extends React.Component {
       // and draw the resulting skeleton and keypoints if over certain confidence
       // scores
       poses.forEach(({score, keypoints}) => {
-        console.info(score);
-        console.info(keypoints);
         if (score >= minPoseConfidence) {
-          console.info('draw');
           drawKeypoints(keypoints, minPartConfidence, ctx);
           drawSkeleton(keypoints, minPartConfidence, ctx);
           drawBoundingBox(keypoints, ctx);
@@ -88,61 +94,6 @@ class VideoSelector extends React.Component {
       });
 
       requestAnimationFrame(poseDetectionFrame);
-
-      function drawBoundingBox(keypoints, ctx) {
-        const boundingBox = posenet.getBoundingBox(keypoints);
-
-        ctx.rect(
-            boundingBox.minX, boundingBox.minY, boundingBox.maxX - boundingBox.minX,
-            boundingBox.maxY - boundingBox.minY);
-
-        ctx.strokeStyle = boundingBoxColor;
-        ctx.stroke();
-      }
-
-      function drawKeypoints(keypoints, minConfidence, ctx, scale = 1) {
-        for (let i = 0; i < keypoints.length; i++) {
-          const keypoint = keypoints[i];
-
-          if (keypoint.score < minConfidence) {
-            continue;
-          }
-
-          const {y, x} = keypoint.position;
-          drawPoint(ctx, y * scale, x * scale, 3, color);
-        }
-      }
-
-      function drawSkeleton(keypoints, minConfidence, ctx, scale = 1) {
-        const adjacentKeyPoints =
-            posenet.getAdjacentKeyPoints(keypoints, minConfidence);
-
-        adjacentKeyPoints.forEach((keypoints) => {
-          drawSegment(
-              toTuple(keypoints[0].position), toTuple(keypoints[1].position), color,
-              scale, ctx);
-        });
-      }
-
-      function toTuple({y, x}) {
-        return [y, x];
-      }
-
-      function drawSegment([ay, ax], [by, bx], color, scale, ctx) {
-        ctx.beginPath();
-        ctx.moveTo(ax * scale, ay * scale);
-        ctx.lineTo(bx * scale, by * scale);
-        ctx.lineWidth = lineWidth;
-        ctx.strokeStyle = color;
-        ctx.stroke();
-      }
-
-      function drawPoint(ctx, y, x, r, color) {
-        ctx.beginPath();
-        ctx.arc(x, y, r, 0, 2 * Math.PI);
-        ctx.fillStyle = color;
-        ctx.fill();
-      }
 
     }
 
