@@ -1,5 +1,7 @@
 import React from 'react';
 import * as posenet from '@tensorflow-models/posenet';
+import { toPairs } from 'lodash';
+import importAll from 'import-all.macro';
 import {
  drawBoundingBox,
  drawKeypoints,
@@ -8,8 +10,12 @@ import {
  drawPoint,
 } from './Utils';
 
+const videoFiles = toPairs(importAll.sync('../videos/**/*.mp4'));
+console.info(videoFiles);
+
 class VideoSelector extends React.Component {
   state = {
+    src: 'videos/curry_cropped.mp4'
   };
 
   render() {
@@ -17,25 +23,48 @@ class VideoSelector extends React.Component {
       <div>
       <h1>Hello</h1>
       <video id="video" width="400" height="400" muted controls>
-       <source src="curry_cropped.mp4" type="video/mp4"/>
+       <source src={this.state.src} type="video/mp4"/>
       </video>
       <canvas id="output" width="400" height="400"/>
+      <div>
+      <select
+          defaultValue={this.state.src}
+          onChange={e => this.setState({ src: e.target.value })}
+          >
+          {
+            videoFiles.map(([filename, path]) => (
+            <option key={path} value={path}>
+              {filename}
+            </option>
+            ))
+          }
+      </select>
+      </div>
       </div>
     );
   }
 
   setup = async() => {
-    const net = await posenet.load({
-      architecture: 'ResNet50',
-      outputStride: 32,
-      inputResolution: 257,
-      quantBytes: 2
-    });
+    const net = await posenet.load();
+    //const net = await posenet.load({
+      //architecture: 'ResNet50',
+      //outputStride: 32,
+      //inputResolution: 257,
+      //quantBytes: 2
+    //});
     //this.poseData = await loadPoseData();
     console.log('LOADED ALL POSES!!!');
     //this.setState({ loadedPoses: true });
     return net;
   };
+
+  async componentDidUpdate(prevProps) {
+    const net = await this.setup();
+    const video = this.getVideo();
+    video.load();
+    video.playbackRate = 0.2;
+    video.play();
+  }
 
   getVideo() {
     const video = document.getElementById('video');
@@ -47,21 +76,17 @@ class VideoSelector extends React.Component {
     const video = this.getVideo();
     video.playbackRate = 0.2;
     video.play();
-    this.getPoses(video, net);
+    video.onplaying = () => {
+      this.getPoses(video, net);
+    };
   }
 
   getPoses(video, net) {
-    let processing = false;
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
-    video.onended = function(e) {
-      processing = false;
-    };
 
     let poseDetectionFrame = async () => {
-      if (processing === false) {
-        return;
-      }
+      console.info('processing');
       let poses = [];
       let minPoseConfidence = 0.1;
       let minPartConfidence = 0.5;
@@ -93,11 +118,12 @@ class VideoSelector extends React.Component {
         }
       });
 
-      requestAnimationFrame(poseDetectionFrame);
+      if (!video.paused) {
+        requestAnimationFrame(poseDetectionFrame);
+      }
 
     }
 
-    processing = true;
     poseDetectionFrame();
   }
 
