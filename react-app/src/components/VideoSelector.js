@@ -8,38 +8,67 @@ import {
  drawSkeleton,
  drawSegment,
  drawPoint,
+ drawPoses,
 } from './Utils';
 
 const videoFiles = toPairs(importAll.sync('../videos/**/*.mp4'));
-console.info(videoFiles);
 
 class VideoSelector extends React.Component {
+
   state = {
-    src: 'videos/curry_cropped.mp4'
+    src1: 'videos/curry_cropped.mp4',
+    src2: 'videos/curry_cropped.mp4'
   };
 
   render() {
     return (
       <div>
-      <h1>Hello</h1>
-      <video id="video" width="400" height="400" muted controls>
-       <source src={this.state.src} type="video/mp4"/>
-      </video>
-      <canvas id="output" width="400" height="400"/>
-      <div>
-      <select
-          defaultValue={this.state.src}
-          onChange={e => this.setState({ src: e.target.value })}
-          >
-          {
-            videoFiles.map(([filename, path]) => (
-            <option key={path} value={path}>
-              {filename}
-            </option>
-            ))
-          }
-      </select>
-      </div>
+        <h1>Hello</h1>
+        <div className="row">
+          <div className="container">
+            <video id="video" width="400" height="400" muted controls style={{display: 'none'}}>
+             <source src={this.state.src1} type="video/mp4"/>
+            </video>
+            <canvas id="output" width="400" height="400"/>
+            <div>
+            <select
+                defaultValue={this.state.src1}
+                onChange={e => this.setState({ src1: e.target.value })}
+                >
+                {
+                  videoFiles.map(([filename, path]) => (
+                  <option key={path} value={path}>
+                    {filename}
+                  </option>
+                  ))
+                }
+            </select>
+            </div>
+          </div>
+          <div>
+            <button onClick={this.doCompare}>Compare</button>
+          </div>
+          <div className="container">
+            <video id="video2" width="400" height="400" muted controls style={{display: 'none'}}>
+             <source src={this.state.src2} type="video/mp4"/>
+            </video>
+            <canvas id="output2" width="400" height="400"/>
+            <div>
+            <select
+                defaultValue={this.state.src2}
+                onChange={e => this.setState({ src2: e.target.value })}
+                >
+                {
+                  videoFiles.map(([filename, path]) => (
+                  <option key={path} value={path}>
+                    {filename}
+                  </option>
+                  ))
+                }
+            </select>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -58,65 +87,46 @@ class VideoSelector extends React.Component {
     return net;
   };
 
-  async componentDidUpdate(prevProps) {
-    const net = await this.setup();
-    const video = this.getVideo();
-    video.load();
+  doCompare = () => {
+    const video = this.getVideo('video2');
+    const net = this.net;
     video.playbackRate = 0.2;
+    video.onplaying = () => {
+      this.getPoses(video, net);
+    };
     video.play();
   }
 
-  getVideo() {
-    const video = document.getElementById('video');
+  async componentDidUpdate(prevProps) {
+    const video1 = this.getVideo('video');
+    video1.load();
+    const video2 = this.getVideo('video2');
+    video2.load();
+  }
+
+  getVideo(id) {
+    const video = document.getElementById(id);
     return video;
   }
 
   async componentDidMount() {
-    const net = await this.setup();
-    const video = this.getVideo();
-    video.playbackRate = 0.2;
-    video.play();
-    video.onplaying = () => {
-      this.getPoses(video, net);
-    };
+    this.net = await this.setup();
   }
 
   getPoses(video, net) {
-    const canvas = document.getElementById('output');
+    const canvas = document.getElementById('output2');
     const ctx = canvas.getContext('2d');
 
     let poseDetectionFrame = async () => {
       console.info('processing');
       let poses = [];
-      let minPoseConfidence = 0.1;
-      let minPartConfidence = 0.5;
       const pose = await net.estimateSinglePose(video, {
         flipHorizontal: true,
         decodingMethod: 'single-person'
       });
       poses = poses.concat(pose);
 
-      const videoWidth = 400;
-      const videoHeight = 400;
-
-      ctx.clearRect(0, 0, videoWidth, videoHeight);
-
-      ctx.save();
-      ctx.scale(-1, 1);
-      ctx.translate(-videoWidth, 0);
-      ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
-      ctx.restore();
-
-      // For each pose (i.e. person) detected in an image, loop through the poses
-      // and draw the resulting skeleton and keypoints if over certain confidence
-      // scores
-      poses.forEach(({score, keypoints}) => {
-        if (score >= minPoseConfidence) {
-          drawKeypoints(keypoints, minPartConfidence, ctx);
-          drawSkeleton(keypoints, minPartConfidence, ctx);
-          drawBoundingBox(keypoints, ctx);
-        }
-      });
+      drawPoses(ctx, poses, video);
 
       if (!video.paused) {
         requestAnimationFrame(poseDetectionFrame);

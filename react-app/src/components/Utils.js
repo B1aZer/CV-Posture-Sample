@@ -66,3 +66,32 @@ export function drawPoint(ctx, y, x, r, color) {
   ctx.fillStyle = color;
   ctx.fill();
 }
+
+export function drawPoses(ctx, poses, video) {
+
+  const videoWidth = 400;
+  const videoHeight = 400;
+
+  let minPoseConfidence = 0.1;
+  let minPartConfidence = 0.5;
+
+  ctx.clearRect(0, 0, videoWidth, videoHeight);
+
+  ctx.save();
+  ctx.scale(-1, 1);
+  ctx.translate(-videoWidth, 0);
+  ctx.drawImage(video, 0, 0, videoWidth, videoHeight);
+  ctx.restore();
+
+  // For each pose (i.e. person) detected in an image, loop through the poses
+  // and draw the resulting skeleton and keypoints if over certain confidence
+  // scores
+  poses.forEach(({score, keypoints}) => {
+    if (score >= minPoseConfidence) {
+      drawKeypoints(keypoints, minPartConfidence, ctx);
+      drawSkeleton(keypoints, minPartConfidence, ctx);
+      drawBoundingBox(keypoints, ctx);
+    }
+  });
+}
+
