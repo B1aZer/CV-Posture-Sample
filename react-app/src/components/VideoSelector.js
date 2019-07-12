@@ -13,17 +13,44 @@ import {
 
 const videoFiles = toPairs(importAll.sync('../videos/**/*.mp4'));
 
-class VideoSelector extends React.Component {
+class Main extends React.Component {
+
+  constructor(props) {
+    super(props);
+    this.handleCounterChange = this.handleCounterChange.bind(this);
+  }
+
+  state = {
+    counter: 0
+  }
+
+  handleCounterChange(i) {
+    this.setState((state, props) => ({
+      counter: i
+    }));
+  }
+
+  render() {
+    return (
+      <div>
+        <h1>Hello {this.state.counter}</h1>
+        <VideoSelector handleCounter={this.handleCounterChange} />
+      </div>
+    )
+  }
+
+}
+
+class VideoSelector extends React.PureComponent {
 
   state = {
     src1: 'videos/curry_cropped.mp4',
-    src2: 'videos/curry_cropped.mp4'
+    src2: 'videos/curry_cropped.mp4',
   };
 
   render() {
     return (
       <div>
-        <h1>Hello</h1>
         <div className="row">
           <div className="container">
             <video id="video" width="400" height="400" muted controls style={{display: 'none'}}>
@@ -116,9 +143,13 @@ class VideoSelector extends React.Component {
   getPoses(video, net) {
     const canvas = document.getElementById('output2');
     const ctx = canvas.getContext('2d');
+    let i = 0;
 
     let poseDetectionFrame = async () => {
-      console.info('processing');
+
+      this.props.handleCounter(i);
+      i += 1;
+
       let poses = [];
       const pose = await net.estimateSinglePose(video, {
         flipHorizontal: true,
@@ -139,4 +170,4 @@ class VideoSelector extends React.Component {
 
 }
 
-export default VideoSelector;
+export default Main;

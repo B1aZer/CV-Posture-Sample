@@ -1,12 +1,12 @@
 import React from 'react';
 import logo from './logo.svg';
 import './App.css';
-import VideoSelector from './components/VideoSelector';
+import Main from './components/VideoSelector';
 
 function App() {
   return (
     <div className="App">
-      <VideoSelector />
+      <Main />
     </div>
   );
 }
