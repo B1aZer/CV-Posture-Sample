@@ -9,6 +9,9 @@ import {
  drawSegment,
  drawPoint,
  drawPoses,
+ convertPoseToVector,
+ buildVPTree,
+ findMostSimilarMatch,
 } from './Utils';
 
 const videoFiles = toPairs(importAll.sync('../videos/**/*.mp4'));
@@ -108,20 +111,34 @@ class VideoSelector extends React.PureComponent {
       //inputResolution: 257,
       //quantBytes: 2
     //});
-    //this.poseData = await loadPoseData();
     console.log('LOADED ALL POSES!!!');
-    //this.setState({ loadedPoses: true });
     return net;
   };
 
   doCompare = () => {
-    const video = this.getVideo('video2');
-    const net = this.net;
-    video.playbackRate = 0.2;
-    video.onplaying = () => {
-      this.getPoses(video, net);
+    const video = this.getVideo('video');
+    const canvas = document.getElementById('output');
+    const ctx = canvas.getContext('2d');
+
+    let onplaying = async () => {
+      let poses = [];
+      const pose = await this.net.estimateSinglePose(video, {
+        flipHorizontal: true,
+        decodingMethod: 'single-person'
+      });
+      poses = poses.concat(pose);
+      drawPoses(ctx, poses, video);
+
+      const match = findMostSimilarMatch(this.vptree, pose);
+      console.info(match);
+      if (!video.paused) {
+        requestAnimationFrame(onplaying);
+      }
     };
+
+    video.onplaying = onplaying;
     video.play();
+
   }
 
   async componentDidUpdate(prevProps) {
@@ -136,14 +153,58 @@ class VideoSelector extends React.PureComponent {
     return video;
   }
 
+  async getVPTreeFor(video) {
+    let i = 0;
+    let allPoses = [];
+
+    let poseDetectionFrame = async () => {
+      this.props.handleCounter(i);
+      i += 1;
+
+      const pose = await this.net.estimateSinglePose(video, {
+        flipHorizontal: true,
+        decodingMethod: 'single-person'
+      });
+      allPoses = allPoses.concat(pose);
+
+      if (!video.paused) {
+        requestAnimationFrame(poseDetectionFrame);
+      }
+    }
+
+    video.onplaying = () => {
+      poseDetectionFrame();
+    }
+
+    video.playbackRate = 0.5;
+    video.play();
+
+    return new Promise(resolve => {
+      video.onended = async () => {
+        const vectorMap = allPoses.map(pose => {
+          return convertPoseToVector(pose);
+        });
+        const vptree = await buildVPTree(vectorMap);
+        resolve(vptree);
+      }
+    });
+
+  }
+
   async componentDidMount() {
     this.net = await this.setup();
+
+    const video = this.getVideo('video2');
+
+    this.vptree = await this.getVPTreeFor(video);
+
   }
 
   getPoses(video, net) {
     const canvas = document.getElementById('output2');
     const ctx = canvas.getContext('2d');
     let i = 0;
+    let allPoses = [];
 
     let poseDetectionFrame = async () => {
 
@@ -156,6 +217,7 @@ class VideoSelector extends React.PureComponent {
         decodingMethod: 'single-person'
       });
       poses = poses.concat(pose);
+      allPoses = allPoses.concat(poses);
 
       drawPoses(ctx, poses, video);
 
