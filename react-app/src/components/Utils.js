@@ -206,7 +206,7 @@ export function findMostSimilarMatch(vptree, userPose) {
   // return index (in relation to poseData) of nearest match.
   return {
     index: nearestImage[0].i,
-    score: nearestImage[0].d,
+    distance: nearestImage[0].d,
     category: 'unknown',
   };
 }

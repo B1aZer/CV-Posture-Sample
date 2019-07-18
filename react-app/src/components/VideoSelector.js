@@ -15,16 +15,24 @@ import {
 } from './Utils';
 
 const videoFiles = toPairs(importAll.sync('../videos/**/*.mp4'));
+const similarityMaxDistance = 0.2;
 
 class Main extends React.Component {
 
   constructor(props) {
     super(props);
     this.handleCounterChange = this.handleCounterChange.bind(this);
+    this.handleSimChange = this.handleSimChange.bind(this);
+    this.getCounter = this.getCounter.bind(this);
   }
 
   state = {
-    counter: 0
+    counter: 0,
+    similarity: 0,
+  }
+
+  getCounter() {
+    return this.state.counter;
   }
 
   handleCounterChange(i) {
@@ -33,11 +41,22 @@ class Main extends React.Component {
     }));
   }
 
+  handleSimChange(i) {
+    this.setState((state, props) => ({
+      similarity: i
+    }));
+  }
+
   render() {
     return (
       <div>
-        <h1>Hello {this.state.counter}</h1>
-        <VideoSelector handleCounter={this.handleCounterChange} />
+        <h1>Frames: {this.state.counter}</h1>
+        <h1>Similarity: {this.state.similarity}</h1>
+        <VideoSelector
+          getCounter={this.getCounter}
+          handleCounter={this.handleCounterChange}
+          handleSimilarity={this.handleSimChange}
+          />
       </div>
     )
   }
@@ -119,6 +138,7 @@ class VideoSelector extends React.PureComponent {
     const video = this.getVideo('video');
     const canvas = document.getElementById('output');
     const ctx = canvas.getContext('2d');
+    let similarity = 0;
 
     let onplaying = async () => {
       let poses = [];
@@ -130,13 +150,25 @@ class VideoSelector extends React.PureComponent {
       drawPoses(ctx, poses, video);
 
       const match = findMostSimilarMatch(this.vptree, pose);
-      console.info(match);
+
+      if (match.distance <= similarityMaxDistance) {
+        similarity += 1;
+      }
+
       if (!video.paused) {
         requestAnimationFrame(onplaying);
       }
     };
 
+    function onstopped() {
+      let result = Math.round(similarity / this.props.getCounter() * 100) / 100;
+      this.props.handleSimilarity(result);
+    }
+
     video.onplaying = onplaying;
+    onstopped = onstopped.bind(this);
+    video.addEventListener('ended', onstopped);
+    video.playbackRate = 0.5;
     video.play();
 
   }
@@ -192,42 +224,13 @@ class VideoSelector extends React.PureComponent {
   }
 
   async componentDidMount() {
+
     this.net = await this.setup();
 
     const video = this.getVideo('video2');
 
     this.vptree = await this.getVPTreeFor(video);
 
-  }
-
-  getPoses(video, net) {
-    const canvas = document.getElementById('output2');
-    const ctx = canvas.getContext('2d');
-    let i = 0;
-    let allPoses = [];
-
-    let poseDetectionFrame = async () => {
-
-      this.props.handleCounter(i);
-      i += 1;
-
-      let poses = [];
-      const pose = await net.estimateSinglePose(video, {
-        flipHorizontal: true,
-        decodingMethod: 'single-person'
-      });
-      poses = poses.concat(pose);
-      allPoses = allPoses.concat(poses);
-
-      drawPoses(ctx, poses, video);
-
-      if (!video.paused) {
-        requestAnimationFrame(poseDetectionFrame);
-      }
-
-    }
-
-    poseDetectionFrame();
   }
 
 }
