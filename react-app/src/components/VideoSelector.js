@@ -50,7 +50,7 @@ class Main extends React.Component {
   render() {
     return (
       <div>
-        <h1>Frames: {this.state.counter}</h1>
+        <h1>Frames loading: {this.state.counter}</h1>
         <h1>Similarity: {this.state.similarity}</h1>
         <VideoSelector
           getCounter={this.getCounter}
@@ -68,11 +68,13 @@ class VideoSelector extends React.PureComponent {
   state = {
     src1: 'videos/curry_cropped.mp4',
     src2: 'videos/curry_cropped.mp4',
+    loaded: false,
   };
 
   render() {
     return (
       <div>
+        <fieldset disabled={!this.state.loaded}>
         <div className="row">
           <div className="container">
             <video id="video" width="400" height="400" muted controls style={{display: 'none'}}>
@@ -118,6 +120,7 @@ class VideoSelector extends React.PureComponent {
             </div>
           </div>
         </div>
+        </fieldset>
       </div>
     );
   }
@@ -170,10 +173,10 @@ class VideoSelector extends React.PureComponent {
     video.addEventListener('ended', onstopped);
     video.playbackRate = 0.5;
     video.play();
-
   }
 
-  async componentDidUpdate(prevProps) {
+  async componentDidUpdate(prevProps, prevState) {
+    console.info('update');
     const video1 = this.getVideo('video');
     video1.load();
     const video2 = this.getVideo('video2');
@@ -189,6 +192,9 @@ class VideoSelector extends React.PureComponent {
     let i = 0;
     let allPoses = [];
 
+    const canvas = document.getElementById('output2');
+    const ctx = canvas.getContext('2d');
+
     let poseDetectionFrame = async () => {
       this.props.handleCounter(i);
       i += 1;
@@ -197,6 +203,7 @@ class VideoSelector extends React.PureComponent {
         flipHorizontal: true,
         decodingMethod: 'single-person'
       });
+      drawPoses(ctx, [pose], video);
       allPoses = allPoses.concat(pose);
 
       if (!video.paused) {
@@ -220,7 +227,10 @@ class VideoSelector extends React.PureComponent {
         resolve(vptree);
       }
     });
+  }
 
+  async processComparingToVideo(video) {
+    this.vptree = await this.getVPTreeFor(video);
   }
 
   async componentDidMount() {
@@ -229,7 +239,9 @@ class VideoSelector extends React.PureComponent {
 
     const video = this.getVideo('video2');
 
-    this.vptree = await this.getVPTreeFor(video);
+    await this.processComparingToVideo(video);
+
+    this.setState({ loaded: true });
 
   }
 
