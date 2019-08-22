@@ -50,7 +50,7 @@ class Main extends React.Component {
   render() {
     return (
       <div>
-        <h1>Frames loading: {this.state.counter}</h1>
+        <h1>Frames loaded: {this.state.counter}</h1>
         <h1>Similarity: {this.state.similarity}</h1>
         <VideoSelector
           getCounter={this.getCounter}
@@ -176,7 +176,6 @@ class VideoSelector extends React.PureComponent {
   }
 
   async componentDidUpdate(prevProps, prevState) {
-    console.info('update');
     const video1 = this.getVideo('video');
     video1.load();
     const video2 = this.getVideo('video2');
